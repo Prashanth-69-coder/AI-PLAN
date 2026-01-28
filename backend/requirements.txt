@@ -5,7 +5,7 @@ google-generativeai
 pydantic
 sqlmodel
 requests
-passlib[bcrypt]
+bcrypt
 python-jose[cryptography]
 python-multipart
 reportlab
