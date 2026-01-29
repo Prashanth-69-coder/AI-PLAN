@@ -342,10 +342,12 @@ def analyze_chat_intent(message: str, history: List[dict]) -> dict:
     {conversation_text}
 
     Instructions:
-    - You must gather ALL 5 pieces of information.
+    - Extract any information the user has provided so far.
+    - If the user mentions a destination (city, country, place), ALWAYS acknowledge it in your response.
     - Do NOT assume defaults for Origin, Travelers, or Budget. You must ask the user for these.
-    - Defaults: You MAY assume "3 days" if the user doesn't specify duration but gives everything else.
-    - If any information is missing, ask a natural, friendly follow-up question to get it. Group questions if multiple things are missing.
+    - You MAY assume "3 days" if the user doesn't specify duration but gives everything else.
+    - If any information is missing, ask a natural, friendly follow-up question to get it.
+    - Group questions if multiple things are missing to keep the conversation efficient.
     - JSON Output Format:
       - If you need more info: {{ "action": "continue", "response": "Your natural language response asking for the missing details." }}
       - If you have enough info to plan: {{ "action": "plan_ready", "params": {{ "origin": "...", "destination": "...", "days": N, "travelers": N, "budget_level": "..." }} }}
@@ -354,8 +356,12 @@ def analyze_chat_intent(message: str, history: List[dict]) -> dict:
     """
     
     try:
+        print(f"[DEBUG] Sending chat intent analysis to Gemini...")
+        print(f"[DEBUG] Conversation: {conversation_text}")
         response = model.generate_content(prompt)
         text = response.text
+        print(f"[DEBUG] Gemini raw response: {text}")
+        
         # Clean up code blocks if any
         if text.startswith("```json"):
             text = text[7:]
@@ -363,10 +369,20 @@ def analyze_chat_intent(message: str, history: List[dict]) -> dict:
             text = text[:-3]
         
         import json
-        return json.loads(text.strip())
+        result = json.loads(text.strip())
+        print(f"[DEBUG] Parsed JSON result: {result}")
+        return result
+        
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] JSON parsing error: {e}")
+        print(f"[ERROR] Raw text that failed to parse: {text if 'text' in locals() else 'No response text'}")
+        return {"action": "continue", "response": "I understood you want to plan a trip! Could you tell me a bit more about where you'd like to go and when?"}
+        
     except Exception as e:
-        print(f"Chat Analysis Error: {e}")
-        return {"action": "continue", "response": "I'm having trouble understanding. Could you please clarify where you want to go?"}
+        print(f"[ERROR] Chat Analysis Error: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"action": "continue", "response": "I'm having trouble understanding. Could you please tell me where you'd like to travel?"}
 
 
 
